@@ -1,0 +1,48 @@
+name: CD
+
+on:
+  push:
+    branches: [ "main" ]
+  repository_dispatch:
+    types: [deploy_model]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Log in to the Container registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build API image
+      run: |
+        docker build -t ghcr.io/${{ github.repository }}/fraudsentinel-api:latest -f docker/Dockerfile.api .
+        docker push ghcr.io/${{ github.repository }}/fraudsentinel-api:latest
+        
+    - name: Build Dashboard image
+      run: |
+        docker build -t ghcr.io/${{ github.repository }}/fraudsentinel-dashboard:latest -f docker/Dockerfile.dashboard .
+        docker push ghcr.io/${{ github.repository }}/fraudsentinel-dashboard:latest
+        
+    - name: Trigger Render Deploy (API)
+      if: env.RENDER_DEPLOY_HOOK != ''
+      env:
+        RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_API_HOOK }}
+      run: |
+        curl -X GET $RENDER_DEPLOY_HOOK
+        
+    - name: Trigger Render Deploy (Dashboard)
+      if: env.RENDER_DEPLOY_HOOK != ''
+      env:
+        RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DASHBOARD_HOOK }}
+      run: |
+        curl -X GET $RENDER_DEPLOY_HOOK

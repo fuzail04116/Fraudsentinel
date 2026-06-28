@@ -1,0 +1,36 @@
+FROM apache/airflow:2.8.0-python3.11
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# Install Python dependencies needed by DAGs
+RUN pip install --no-cache-dir \
+    pandas==2.1.4 \
+    numpy==1.26.3 \
+    scikit-learn==1.4.0 \
+    xgboost==2.0.3 \
+    imbalanced-learn==0.11.0 \
+    shap==0.44.0 \
+    mlflow==2.10.0 \
+    evidently==0.4.13 \
+    great-expectations==0.18.8 \
+    requests==2.31.0 \
+    kafka-python==2.0.2 \
+    supabase==2.3.4 \
+    python-dotenv==1.0.0
+
+# Copy DAGs
+COPY --chown=airflow:root dags/ /opt/airflow/dags/
+
+# Initialize DB and create admin user on startup
+COPY --chown=airflow:root docker/airflow-entrypoint.sh /entrypoint-custom.sh
+RUN chmod +x /entrypoint-custom.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint-custom.sh"]
